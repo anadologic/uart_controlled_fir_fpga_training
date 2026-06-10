@@ -1,0 +1,10 @@
+# Vivado run artifacts
+.Xil/
+*.jou
+*.log
+*.str
+vivado/vivado_project/
+
+# Generated outputs (keep reports out of version control; remove this line
+# if you want to commit reference reports for the training)
+reports/

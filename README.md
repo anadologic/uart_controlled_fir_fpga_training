@@ -77,10 +77,15 @@ Status byte: `bit7 = busy`, `bit6 = RAM full (error)`, `bits 5..0 = sample count
 │   ├── fir_filter.vhd
 │   ├── sample_ram.vhd
 │   └── packet_formatter.vhd
+├── tb/                                    <- testbenches (simulation only)
+│   ├── tb_fir_filter.vhd                  <- unit-level, self-checking
+│   └── tb_top_synth_demo.vhd              <- system-level UART test, self-checking
 ├── constraints/
 │   └── top_synth_demo.xdc                 <- Nexys A7 pins + 100 MHz clock
 ├── vivado/
 │   ├── create_project.tcl                 <- project creation (project mode)
+│   ├── run_simulation.tcl                 <- project-mode batch simulation
+│   ├── run_sim_xsim.bat                   <- standalone xsim batch simulation
 │   ├── run_synthesis.tcl                  <- project-mode batch synthesis
 │   ├── non_project_synth.tcl              <- non-project batch synthesis
 │   └── report_synthesis.tcl               <- regenerate reports from a checkpoint
@@ -171,7 +176,63 @@ Walk through, in this order:
 
 ---
 
-## 5. Batch flows
+## 5. Simulation phase (run this before synthesis in the training)
+
+Two self-checking testbenches in `tb/` demonstrate verification at two levels —
+this contrast is itself a slide: *unit test vs. system test*.
+
+| Testbench            | Level  | What it does                                            | Sim time |
+|----------------------|--------|---------------------------------------------------------|----------|
+| `tb_fir_filter`      | Unit   | Applies a unit impulse, checks the output equals the coefficient ROM (the impulse response of an FIR **is** its coefficients) | ~1.3 µs |
+| `tb_top_synth_demo`  | System | Acts as the PC terminal: sends `Z`/`S`/`R`/`X`/`C` over UART, checks every reply byte and the LEDs | ~1.7 ms |
+
+Both testbenches print `TEST PASSED` / `TEST FAILED` and stop themselves
+(gated clock + watchdog) — no manual run time needed.
+
+### Testbench techniques worth pointing out on slides
+
+- **UART BFM procedures** (`uart_send_byte`) drive the DUT exactly like a PC would
+- A **concurrent UART monitor process** deserializes the DUT TX line into a
+  mailbox so no reply byte is ever missed — stimulus and checking are decoupled
+- **Self-checking** with `report`/`severity` instead of eyeballing waveforms
+- A **watchdog process** fails the test instead of hanging forever
+
+### GUI flow
+
+`Flow Navigator → Simulation → Run Behavioral Simulation`
+(sim top: `tb_top_synth_demo`; switch to `tb_fir_filter` via
+`Simulation Settings → Top module name`)
+
+Show: the Tcl console `OK:` messages, the UART frames in the waveform viewer
+(add `uart_rx_i`/`uart_tx_o`), the FIR delay line filling up.
+
+### Batch flows
+
+```bat
+:: Project mode (xsim via launch_simulation)
+C:\Xilinx\Vivado\2023.2\bin\vivado.bat -mode batch -source vivado\run_simulation.tcl
+
+:: Standalone xsim (no project): xvhdl -> xelab -> xsim
+vivado\run_sim_xsim.bat                    && rem system-level TB
+vivado\run_sim_xsim.bat tb_fir_filter      && rem FIR unit TB
+```
+
+### Key training message
+
+> Simulation verifies *behavior*, synthesis verifies *implementability*.
+> The testbenches are **not** synthesizable (they use `wait for`, `report`,
+> file-less procedures) and are therefore kept in `tb/`, outside the synthesis
+> source set — only `rtl/` goes to `synth_design`.
+
+A war story you can tell from this very repository: the first version of
+`uart_tx` accepted a new byte even on a cycle where `tx_ready_o` was still low.
+Synthesis was clean — 0 errors, timing met — but the system testbench caught
+the protocol bug immediately (the status byte was re-transmitted forever).
+*Clean synthesis does not mean correct design; that is what simulation is for.*
+
+---
+
+## 6. Batch synthesis flows
 
 Run from the repository root (any directory works — scripts resolve their own paths):
 
@@ -200,7 +261,7 @@ a Verilog netlist.
 
 ---
 
-## 6. Expected synthesis results (verified, Vivado 2023.2)
+## 7. Expected synthesis results (verified, Vivado 2023.2)
 
 Use these numbers on your slides — they come from an actual run of
 `non_project_synth.tcl` on this repository:
@@ -228,7 +289,7 @@ timing comfortably.
 
 ---
 
-## 7. Live experiments to run in class
+## 8. Live experiments to run in class
 
 Small RTL/XDC edits with visible synthesis consequences:
 
@@ -245,7 +306,7 @@ Small RTL/XDC edits with visible synthesis consequences:
 
 ---
 
-## 8. Talking points per phase
+## 9. Talking points per phase
 
 **Before synthesis** — RTL describes behavior and structure; nothing is mapped to
 LUTs, FFs, BRAMs, or DSPs yet.
@@ -270,7 +331,7 @@ timing closure methodology. The `set_false_path` exceptions already present in
 
 ---
 
-## 9. Trying it on hardware (optional)
+## 10. Trying it on hardware (optional)
 
 1. Run synthesis + implementation + bitstream in the GUI project.
 2. Connect the Nexys A7 USB port; it enumerates as a COM port.

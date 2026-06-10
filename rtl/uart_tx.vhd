@@ -53,13 +53,16 @@ begin
         case state is
 
           when ST_IDLE =>
-            tx_r  <= '1';
-            ready <= '1';
-            if tx_valid_i = '1' then
+            tx_r <= '1';
+            -- Only accept a byte on a cycle where ready is visible as '1',
+            -- so the producer always observes the valid/ready handshake.
+            if ready = '1' and tx_valid_i = '1' then
               shreg    <= tx_data_i;
               ready    <= '0';
               baud_cnt <= 0;
               state    <= ST_START;
+            else
+              ready <= '1';
             end if;
 
           when ST_START =>

@@ -6,10 +6,12 @@ rem
 rem Usage:
 rem   project_mode.cmd create <project_dir>   - create the Vivado project there
 rem   project_mode.cmd synth  <project_dir>   - synthesize the project there
+rem   project_mode.cmd impl   <project_dir>   - implement + write bitstream
 rem
 rem Example:
 rem   vivado\project_mode.cmd create C:\work\fir_proj
 rem   vivado\project_mode.cmd synth  C:\work\fir_proj
+rem   vivado\project_mode.cmd impl   C:\work\fir_proj
 rem
 rem Set VIVADO_BAT to override the default Vivado install location.
 rem ============================================================================
@@ -21,15 +23,18 @@ set "PROJ_DIR=%~2"
 set "VALID="
 if /I "%ACTION%"=="create" set "VALID=1"
 if /I "%ACTION%"=="synth"  set "VALID=1"
+if /I "%ACTION%"=="impl"   set "VALID=1"
 
 if not defined VALID (
     echo Usage: project_mode.cmd create ^<project_dir^>
     echo        project_mode.cmd synth  ^<project_dir^>
+    echo        project_mode.cmd impl   ^<project_dir^>
     exit /b 1
 )
 if "%PROJ_DIR%"=="" (
     echo Usage: project_mode.cmd create ^<project_dir^>
     echo        project_mode.cmd synth  ^<project_dir^>
+    echo        project_mode.cmd impl   ^<project_dir^>
     exit /b 1
 )
 

@@ -49,4 +49,29 @@ report_drc            -file "$output_dir/drc_synth_non_project.rpt"
 write_checkpoint -force "$output_dir/post_synth_non_project.dcp"
 write_verilog    -force "$output_dir/post_synth_netlist.v"
 
-puts "INFO: Non-project synthesis complete. Outputs written to $output_dir"
+puts "INFO: Synthesis stage complete."
+
+################################################################################
+## Implementation: each step is an explicit in-memory command (no impl_1 run).
+## opt_design -> place_design -> phys_opt_design -> route_design
+################################################################################
+opt_design
+place_design
+phys_opt_design
+route_design
+
+# Post-route sign-off reports: now timing/utilization are real (placed+routed),
+# not the estimates we saw after synthesis.
+report_utilization    -file "$output_dir/utilization_impl_non_project.rpt"
+report_timing_summary -file "$output_dir/timing_summary_impl_non_project.rpt"
+report_drc            -file "$output_dir/drc_impl_non_project.rpt"
+
+write_checkpoint -force "$output_dir/post_route_non_project.dcp"
+
+################################################################################
+## Bitstream: the file we actually download to the FPGA.
+################################################################################
+write_bitstream -force "$output_dir/top_synth_demo.bit"
+
+puts "INFO: Non-project implementation complete. Bitstream: $output_dir/top_synth_demo.bit"
+puts "INFO: All outputs written to $output_dir"

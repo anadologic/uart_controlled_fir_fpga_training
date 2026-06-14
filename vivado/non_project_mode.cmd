@@ -3,12 +3,13 @@ rem ============================================================================
 rem non_project_mode.cmd
 rem Non-project (in-memory) synthesis caller for the synthesis training demo.
 rem
-rem Unlike the project-mode flow, there is no create/synth split: a single
-rem invocation reads the sources, synthesizes in memory, and writes the
-rem reports/checkpoint into <output_dir>. No .xpr or synth_1 run is created.
+rem Unlike the project-mode flow, there is no create/synth/impl split: a single
+rem invocation reads the sources, then runs the whole flow in memory
+rem (synth -> opt -> place -> route -> bitstream) and writes the reports,
+rem checkpoints, and the .bit file into <output_dir>. No .xpr or runs created.
 rem
 rem Usage:
-rem   non_project_mode.cmd <output_dir>   - synthesize and write outputs there
+rem   non_project_mode.cmd <output_dir>   - run full flow, write outputs there
 rem
 rem Example:
 rem   vivado\non_project_mode.cmd C:\work\fir_nonproj_out

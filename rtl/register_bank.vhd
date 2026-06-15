@@ -74,11 +74,12 @@ begin
         -- Clear strobe passthrough (registered)
         clear_r <= clear_i;
 
-        -- Threshold register. The sign flip on CLEAR is a demo-only write
-        -- path: without any write path the register would be constant-folded
-        -- away during synthesis.
-        if clear_i = '1' then
-          threshold_r <= -threshold_r;
+        -- Threshold register. START reloads it to the default so the register
+        -- keeps a real write path (without one it would be constant-folded
+        -- away during synthesis). CLEAR is left as a pure buffer reset, so the
+        -- above-threshold LED stays off across repeated clears.
+        if start_i = '1' then
+          threshold_r <= to_signed(C_THRESHOLD_DEFAULT, G_SAMPLE_W);
         end if;
 
         -- Status register: busy / error flags plus sample count snapshot

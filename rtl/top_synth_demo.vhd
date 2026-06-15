@@ -323,7 +323,10 @@ begin
     if rising_edge(clk) then
       heartbeat_cnt <= heartbeat_cnt + 1;
 
-      if fir_valid = '1' then
+      -- CLEAR resets the latched sample so LED2 (above-threshold) clears too.
+      if rst = '1' or clear_pulse = '1' then
+        last_sample <= (others => '0');
+      elsif fir_valid = '1' then
         -- Scale the filter result back to sample width for the compare
         last_sample <= fir_data(C_RESULT_W-1 downto G_COEFF_W);
       end if;

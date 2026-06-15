@@ -81,8 +81,17 @@ switch -- $action {
         set report_dir "$proj_dir/reports"
         file mkdir $report_dir
 
-        report_utilization    -file "$report_dir/utilization_synth.rpt"
-        report_timing_summary -file "$report_dir/timing_summary_synth.rpt"
+        report_utilization     -file "$report_dir/utilization_synth.rpt"
+        report_timing_summary   -file "$report_dir/timing_summary_synth.rpt"
+
+        # Netlist cell inventory + design analysis for synth-vs-impl comparison.
+        report_design_analysis  -file "$report_dir/design_analysis_synth.rpt"
+        set fh [open "$report_dir/cell_count_synth.rpt" w]
+        foreach ref [lsort -unique [get_property REF_NAME [get_cells -hier]]] {
+            puts $fh [format "%-24s %d" $ref \
+                [llength [get_cells -hier -filter "REF_NAME == $ref"]]]
+        }
+        close $fh
 
         puts "INFO: Synthesis complete. Reports written to $report_dir"
     }
@@ -116,9 +125,20 @@ switch -- $action {
         set report_dir "$proj_dir/reports"
         file mkdir $report_dir
 
-        report_utilization    -file "$report_dir/utilization_impl.rpt"
-        report_timing_summary -file "$report_dir/timing_summary_impl.rpt"
-        report_drc            -file "$report_dir/drc_impl.rpt"
+        report_utilization      -file "$report_dir/utilization_impl.rpt"
+        report_timing_summary    -file "$report_dir/timing_summary_impl.rpt"
+        report_drc               -file "$report_dir/drc_impl.rpt"
+
+        # Same netlist cell inventory + analysis as the synth step, so the two
+        # *_synth.rpt / *_impl.rpt pairs diff cleanly to show what opt_design
+        # and phys_opt_design changed (cells added/merged/replicated).
+        report_design_analysis  -file "$report_dir/design_analysis_impl.rpt"
+        set fh [open "$report_dir/cell_count_impl.rpt" w]
+        foreach ref [lsort -unique [get_property REF_NAME [get_cells -hier]]] {
+            puts $fh [format "%-24s %d" $ref \
+                [llength [get_cells -hier -filter "REF_NAME == $ref"]]]
+        }
+        close $fh
 
         # Bitstream produced by the run; report where it landed.
         set bit_file [glob -nocomplain "$proj_dir/$proj_name.runs/impl_1/*.bit"]

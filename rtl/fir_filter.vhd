@@ -114,8 +114,24 @@ begin
             end if;
 
           when S_DONE =>
-            -- Guard bits are not needed for the demo waveform amplitude
-            result_r <= mac_result(G_SAMPLE_W+G_COEFF_W-1 downto 0);
+            -- Saturate the C_ACC_W-bit accumulator into the 32-bit result.
+            -- The triangle peaks genuinely exceed signed 32-bit range at these
+            -- coefficients, so the guard bits matter. The value fits in signed
+            -- 32-bit iff the upper bits [C_ACC_W-1 : 31] are all equal to the
+            -- 32-bit sign bit (bit 31); otherwise clamp to the 32-bit min/max.
+            if mac_result(C_ACC_W-1 downto G_SAMPLE_W+G_COEFF_W-1) =
+                 (C_ACC_W-1 downto G_SAMPLE_W+G_COEFF_W-1 => '0') or
+               mac_result(C_ACC_W-1 downto G_SAMPLE_W+G_COEFF_W-1) =
+                 (C_ACC_W-1 downto G_SAMPLE_W+G_COEFF_W-1 => '1') then
+              -- In range: low 32 bits are an exact representation.
+              result_r <= mac_result(G_SAMPLE_W+G_COEFF_W-1 downto 0);
+            elsif mac_result(C_ACC_W-1) = '0' then
+              -- Positive overflow -> max positive 32-bit value (0x7FFF_FFFF)
+              result_r <= (G_SAMPLE_W+G_COEFF_W-1 => '0', others => '1');
+            else
+              -- Negative overflow -> min negative 32-bit value (0x8000_0000)
+              result_r <= (G_SAMPLE_W+G_COEFF_W-1 => '1', others => '0');
+            end if;
             valid_r  <= '1';
             state    <= S_IDLE;
 

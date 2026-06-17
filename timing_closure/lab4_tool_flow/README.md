@@ -176,3 +176,55 @@ Baseline WNS = **+0.144 ns**. Each lever's measured effect:
 tool-flow knobs mostly do *nothing* (02, 03, 04) or behave *non-intuitively*
 (05) — and the one reliable win (06) is small. That is the honest shape of
 tool-flow optimization: it is the finish line, not the race.
+
+---
+
+## Reference numbers — same scripts on the LAB 1 design (the failing one)
+
+The lab ships pointed at the Lab 2 pipeline (which already passes). But the more
+revealing experiment is to run the *same* tool-flow scripts on the **Lab 1
+combinational adder tree** — a design that *fails* by a wide margin
+(WNS = −4.395 ns). This answers "can the tool rescue a design that's deeply
+negative?" To reproduce: swap `lab1_adder_tree/rtl/fir_parallel.vhd` into
+`lab4_tool_flow/rtl/` and re-run the scripts. (Measured Vivado 2023.2, 3.6 ns.)
+
+| Script | Result (WNS, ns) | Reading |
+|--------|------------------|---------|
+| 01 baseline | −4.395 | reference (fails) |
+| 02 retiming | **−1.273** | **huge +3.1 ns recovery** — see below |
+| 03 phys_opt | −4.380 (was −4.523 mid-flow) | negligible |
+| 04 fanout | −4.380 | negligible (no high-fanout net) |
+| 05 flatten | none −4.395 / rebuilt −4.395 / full **−4.279** | tiny; flatten=full best here |
+| 06 seed sweep | Default −4.380 / Explore −4.380 / ExtraTimingOpt −4.692 / ExtraPostPlacementOpt −4.380 / **ExtraNetDelay_high −4.292** | ±0.4 ns jitter, none close to zero |
+
+### The headline: retiming behaves the OPPOSITE of the Lab 2 case
+
+- **Retiming recovered 3.1 ns here (02): −4.395 → −1.273.** On the Lab 1 design
+  the whole multiply-add cloud sits between *one* input register stage and the
+  *one* output register `result_r` — a massively **unbalanced** single stage.
+  `synth -retiming` + `phys_opt -retime` pulled the output register *backward*
+  into the combinational cloud, splitting that long path. This is the textbook
+  retiming win — and the direct contrast with the Lab 2 run above, where
+  retiming did *nothing* because the pipeline was already balanced. Same lever,
+  opposite outcome, decided entirely by whether an imbalance exists to fix.
+- **But retiming still did not close timing.** −1.273 ns is a big improvement and
+  still a **failure**. Retiming can only move the registers that *exist*; with
+  just two register stages around the cloud there is a hard limit to how short
+  the worst stage can get. To actually close, you must *add* registers in RTL —
+  which is precisely Lab 2 (pipelining). Retiming amplifies; it cannot create the
+  latency pipelining provides.
+- **phys_opt, fanout, flatten, seeds: all negligible (03–06).** None moved WNS
+  more than ~0.2 ns, and the seed sweep's *best* directive (−4.292) is still
+  nowhere near zero. This is the lesson stated bluntly in §5: **when a design is
+  deeply negative, no placement seed or directive will save it.** They polish;
+  they do not pipeline.
+
+**The two runs side by side (the real takeaway):**
+
+| Lever | Lab 2 (balanced, passes) | Lab 1 (unbalanced, fails badly) |
+|-------|--------------------------|----------------------------------|
+| retiming | no effect (nothing to balance) | **+3.1 ns** (big imbalance to fix) |
+| seeds/directives | ±0.2 ns (the finish line) | ±0.4 ns jitter (hopeless from −4.4) |
+
+Tool flow's value depends entirely on the *state of the design you feed it*. It
+rebalances and polishes — it never substitutes for the architecture (Labs 1–3).
